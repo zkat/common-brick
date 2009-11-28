@@ -92,6 +92,18 @@ physics world that their physics-bodies reside in."))
   (graphic physics-body)
   (:documentation "Common Brick game object."))
 
+(defreply x ((obj =game-object=))
+  (vec-x (body-position (physics-body obj))))
+(defreply (setf x) (new-value (obj =game-object=))
+  (setf (body-position (physics-body obj))
+        (vec new-value (y obj))) x)
+
+(defreply y ((obj =game-object=))
+  (vec-y (body-position (physics-body obj))))
+(defreply (setf y) (new-value (obj =game-object=))
+  (setf (body-position (physics-body oby))
+        (vec (x obj) new-value)) y)
+
 ;; A basic breakout game involves 3 "game objects": A bunch of bricks, one or more balls,
 ;; and one or more paddles. We create prototypes for each of these 3 types. In this particular
 ;; case, delegation makes sharing the image resource easy and transparent.
