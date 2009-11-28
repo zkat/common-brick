@@ -230,10 +230,7 @@ physics world that their physics-bodies reside in."))
     (let ((world-add-fun (fun (world-add-body physics-world (physics-body _)))))
       (map nil world-add-fun paddles)
       (map nil world-add-fun balls)
-      (map nil world-add-fun bricks))
-    ;; finally, add the mouse constraint
-    ;; todo
-    )
+      (map nil world-add-fun bricks)))
   level)
 
 ;;;
