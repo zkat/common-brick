@@ -58,23 +58,28 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
   (graphic physics-body)
   (:documentation "Common Brick game object."))
 
-(defmessage object-position (obj)
-  (:reply ((obj =game-object=)) (body-position (property-value obj 'physics-body))))
-(defmessage (setf object-position) (new-value obj)
-  (:reply (new-value (obj =game-object=))
-    (setf (body-position (property-value obj 'physics-body)) new-value)))
+(defmessage object-position (obj))
+(defreply object-position ((obj =game-object=)) (body-position (property-value obj 'physics-body)))
 
+(defmessage (setf object-position) (new-value obj))
+(defreply (setf object-position) (new-value (obj =game-object=))
+  (setf (body-position (property-value obj 'physics-body)) new-value))
+
+(defmessage x (obj))
+(defmessage y (obj))
+(defmessage (setf x) (new-value obj))
+(defmessage (setf y) (new-value obj))
 (defreply x ((obj =game-object=))
   (vec-x (body-position (physics-body obj))))
 (defreply (setf x) (new-value (obj =game-object=))
   (setf (body-position (physics-body obj))
-        (vec new-value (y obj))) x)
+        (vec new-value (y obj))) new-value)
 
 (defreply y ((obj =game-object=))
   (vec-y (body-position (physics-body obj))))
 (defreply (setf y) (new-value (obj =game-object=))
-  (setf (body-position (physics-body oby))
-        (vec (x obj) new-value)) y)
+  (setf (body-position (physics-body obj))
+        (vec (x obj) new-value)) new-value)
 
 ;; A basic breakout game involves 3 "game objects": A bunch of bricks, one or more balls,
 ;; and one or more paddles. We create prototypes for each of these 3 types. In this particular
