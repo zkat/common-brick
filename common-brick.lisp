@@ -50,6 +50,7 @@
         (make-body :actor obj
                    :shapes (list (make-rectangle (width (graphic obj))
                                                  (height (graphic obj))
+                                                 :restitution 1
                                                  :friction 0.3)))))
 
 (defproto =paddle= (=game-object=)
@@ -73,7 +74,7 @@
     (setf (physics-body obj)
           (make-body :actor obj
                      :mass 5
-                     :shapes (list (make-circle radius :friction 0.3 :restitution 0.3))))))
+                     :shapes (list (make-circle radius :friction 0.3 :restitution 1))))))
 
 (defreply draw ((object =game-object=) &rest args &key)
   (with-properties (x y content) object
