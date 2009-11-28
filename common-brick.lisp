@@ -35,6 +35,9 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
    (uid:clear-color uid:*white*)
    current-level))
 
+(defreply init :after ((game =common-brick=))
+  (setf (current-level game) (gen-level)))
+
 (defreply draw ((game =common-brick=) &key)
   (when (current-level game)
     (draw (current-level game))))
@@ -42,43 +45,6 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
   (when (current-level game)
     (update (current-level game) dt))
   (sleep 0.01))
-
-;;;
-;;; Level
-;;;
-(defproto =level= ()
-  ((physics-world (make-world :collision-callback #'collide-objects))
-   bricks paddles balls)
-  (:documentation "A level is a collection of bricks, paddles, and balls, as well as the
-physics world that their physics-bodies reside in."))
-(defreply init-object ((level =level=) &key)
-  (setf (physics-world level) (make-world :collision-callback #'collide-objects)))
-
-(defreply draw ((level =level=) &key)
-  (with-properties (bricks paddles balls) level
-    (map nil #'draw bricks)
-    (map nil #'draw paddles)
-    (map nil #'draw balls)))
-
-(defreply update ((level =level=) dt &key)
-  (let ((update-fun (fun (update _ dt))))
-    (with-properties (bricks paddles balls) level
-      (map nil update-fun paddles)
-      (map nil update-fun balls)
-      (map nil update-fun bricks))))
-
-(defun gen-level (&aux (level (create =level=)))
-  (with-properties (bricks paddles balls physics-world) level
-    (push (create =paddle=) paddles)
-    (push (create =ball=) balls)
-    (loop for x by 50 do
-         (loop for y by 20
-              for brick = (create =brick=) do
-              (setf (x brick) x (y brick) y)))
-    (let ((world-add-fun (fun (world-add-body physics-world _))))
-      (map nil world-add-fun paddles)
-      (map nil world-add-fun balls)
-      (map nil world-add-fun bricks))))
 
 ;;;
 ;;; Game objects
@@ -176,10 +142,46 @@ physics world that their physics-bodies reside in."))
       ;; todo: draw the rotation, too.
       (apply 'draw-at x y graphic args))))
 
-;; If we ever feel like making a game object's GRAPHIC an animation or such, this reply
-;; will take care of updating it properly.
-(defreply update :before ((object =game-object=) dt &key)
-  (update (graphic object) dt))
+(defreply update ((object =game-object=) dt &key) (declare (ignore dt)) nil)
+
+;;;
+;;; Level
+;;;
+(defproto =level= ()
+  ((physics-world (make-world :collision-callback #'collide-objects))
+   bricks paddles balls)
+  (:documentation "A level is a collection of bricks, paddles, and balls, as well as the
+physics world that their physics-bodies reside in."))
+(defreply init-object :after ((level =level=) &key)
+  (setf (physics-world level) (make-world :collision-callback #'collide-objects)))
+
+(defreply draw ((level =level=) &key)
+  (with-properties (bricks paddles balls) level
+    (map nil #'draw bricks)
+    (map nil #'draw paddles)
+    (map nil #'draw balls)))
+
+(defreply update ((level =level=) dt &key)
+  (let ((update-fun (fun (update _ dt))))
+    (with-properties (bricks paddles balls) level
+      (map nil update-fun paddles)
+      (map nil update-fun balls)
+      (map nil update-fun bricks))))
+
+(defun gen-level (&aux (level (create =level=)))
+  (with-properties (bricks paddles balls physics-world) level
+    (push (create =paddle=) paddles)
+    (setf (object-position (car paddles)) (vec 400 30))
+    (loop for x from 25 by 50 upto 800 do
+         (loop for y from 410 by 20 upto 600
+            for brick = (create =brick=) do
+              (setf (object-position brick) (vec x y))
+              (push brick bricks)))
+    (let ((world-add-fun (fun (world-add-body physics-world (physics-body _)))))
+      (map nil world-add-fun paddles)
+      (map nil world-add-fun balls)
+      (map nil world-add-fun bricks)))
+  level)
 
 ;;;
 ;;; Game object collisions
