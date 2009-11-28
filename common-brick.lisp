@@ -43,8 +43,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
     (draw (current-level game))))
 (defreply update ((game =common-brick=) dt &key)
   (when (current-level game)
-    (update (current-level game) dt))
-  (sleep 0.01))
+    (update (current-level game) dt)))
 
 ;;;
 ;;; Game objects
