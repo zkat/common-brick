@@ -92,6 +92,12 @@ physics world that their physics-bodies reside in."))
   (graphic physics-body)
   (:documentation "Common Brick game object."))
 
+(defmessage object-position (obj)
+  (:reply ((obj =game-object=)) (body-position (property-value obj 'physics-body))))
+(defmessage (setf object-position) (new-value obj)
+  (:reply (new-value (obj =game-object=))
+    (setf (body-position (property-value obj 'physics-body)) new-value)))
+
 (defreply x ((obj =game-object=))
   (vec-x (body-position (physics-body obj))))
 (defreply (setf x) (new-value (obj =game-object=))
