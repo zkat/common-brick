@@ -104,7 +104,8 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 
 ;; Rinse and repeat for the other object types...
 (defproto =paddle= (=game-object=)
-  ((graphic (create-image (merge-pathnames "paddle.png" *resource-directory*)))))
+  ((graphic (create-image (merge-pathnames "paddle.png" *resource-directory*)))
+   (delta-x 0) (velocity 200)))
 (defreply init-object :after ((obj =paddle=) &key)
   (let* ((width (width (graphic obj)))
          (height (height (graphic obj)))
@@ -126,6 +127,16 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
                                                  ;; (since "bounce" is a little more than perfect)
                                                  :restitution 1.01
                                                  :friction 0.6))))))
+
+(defreply update ((paddle =paddle=) dt &key)
+  (with-properties (physics-body delta-x velocity) paddle
+    (when (key-down-p :right) (incf delta-x))
+    (when (key-down-p :left) (decf delta-x))
+    (setf (body-position physics-body)
+          (vec (+ (* delta-x velocity dt)
+                  (vec-x (body-position physics-body)))
+               (vec-y (body-position physics-body))))
+    (setf delta-x 0)))
 
 ;; And now our balls...
 (defproto =ball= (=game-object=)
@@ -176,8 +187,9 @@ physics world that their physics-bodies reside in."))
       (map nil update-fun bricks)
       ;; now update the physics world
       (incf accumulator (if (> dt *dt-threshold*) *dt-threshold* dt))
-      (loop while (>= accumulator physics-timestep)
-         do (world-step physics-world physics-timestep)
+      (loop while (>= accumulator physics-timestep) do
+           (squirl::rehash-world-static-data physics-world)
+           (world-step physics-world physics-timestep)
            (decf accumulator physics-timestep)))))
 
 (defun gen-level (&aux (level (create =level=)))
