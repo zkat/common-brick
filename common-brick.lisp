@@ -33,20 +33,31 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
    (uid:window-width 800)
    (uid:window-height 600)
    (uid:clear-color uid:*white*)
-   bricks
-   paddles
-   balls
-   (physics-world (make-world :collision-callback #'collide-objects))))
+   current-level))
 
 (defreply draw ((game =common-brick=) &key)
-  (with-properties (bricks paddles balls) game
+  (draw (current-level game)))
+(defreply update ((game =common-brick=) dt &key)
+  (update (current-level game) dt))
+
+;;;
+;;; Level
+;;;
+;;; - A level is a collection of bricks. When all bricks in a level are destroyed, the level is over.
+(defproto =level= ()
+  (bricks paddles balls physics-world))
+(defreply init-object ((level =level=) &key)
+  (setf (physics-world level) (make-world :collision-callback #'collide-objects)))
+
+(defreply draw ((level =level=) &key)
+  (with-properties (bricks paddles balls) level
     (map nil #'draw bricks)
     (map nil #'draw paddles)
     (map nil #'draw balls)))
 
-(defreply update ((game =common-brick=) dt &key)
+(defreply update ((level =level=) dt &key)
   (let ((update-fun (fun (update _ dt))))
-    (with-properties (bricks paddles balls) game
+    (with-properties (bricks paddles balls) level
       (map nil update-fun paddles)
       (map nil update-fun balls)
       (map nil update-fun bricks))))
@@ -57,6 +68,8 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 ;;; - UID sprites do not hold position information, and squirl bodies do not hold graphics information.
 ;;;   The clear solution is to just put them both into a "game object" which is what we will
 ;;;   actually be interacting with.
+;; TODO - either make game-objects engine-aware so they can access the physics world, or have
+;;        whatever the level setup stuff is take care of adding/removing physics bodies.
 (defproto =game-object= ()
   (graphic physics-body)
   (:documentation "Common Brick game object."))
