@@ -201,9 +201,9 @@ physics world that their physics-bodies reside in."))
       (map nil update-fun balls)
       (map nil update-fun bricks)
       ;; now update the physics world
+      (squirl::rehash-world-static-data physics-world)
       (incf accumulator (if (> dt *dt-threshold*) *dt-threshold* dt))
       (loop while (>= accumulator physics-timestep) do
-           (squirl::rehash-world-static-data physics-world)
            (world-step physics-world physics-timestep)
            (decf accumulator physics-timestep)))))
 
