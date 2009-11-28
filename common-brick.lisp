@@ -82,3 +82,33 @@
 
 (defreply update :before ((object =game-object=) dt &key)
   (update (graphic object) dt))
+
+;;; Game object collisions
+;; The reason we define functions separately is so that they can share a body and still close over
+;; the lexical environment properly. tl;dr: I'm anal.
+(defun paddle/ball (paddle ball contacts)
+  (declare (ignore paddle ball contacts))
+  ;; for now, just return T, which means the collision happened.
+  t)
+
+(defun brick/ball (brick ball contacts)
+  (declare (ignore brick ball contacts))
+  ;; eventually, we want this to increment the score.
+  t)
+
+;; Now we define the actual replies...
+(defreply collide-objects ((obj1 =ball=) (obj2 =ball=) contacts)
+  (declare (ignore contacts))
+  ;; with two balls involved, we can let them bounce. This reply is symmetrical, so we don't
+  ;; need a separate function to have it share a body.
+  t)
+
+(defreply collide-objects ((obj1 =paddle=) (obj2 =ball=) contacts)
+  (paddle/ball obj1 obj2 contacts))
+(defreply collide-objects ((obj1 =ball=) (obj2 =paddle=) contacts)
+  (paddle/ball obj2 obj1 contacts))
+
+(defreply collide-objects ((obj1 =brick=) (obj2 =ball=) contacts)
+  (brick/ball obj1 obj2 contacts))
+(defreply collide-objects ((obj1 =ball=) (obj2 =brick=) contacts)
+  (brick/ball obj2 obj1 contacts))
