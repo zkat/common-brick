@@ -12,7 +12,6 @@
 ;;; The engine object
 (defproto =common-brick= (=engine=)
   ((uid:title "Common Brick")
-   (uid:resizablep nil)
    (uid:window-width 800)
    (uid:window-height 600)
    (physics-world (make-world :collision-callback #'collide-objects))))
