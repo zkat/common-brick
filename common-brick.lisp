@@ -152,8 +152,10 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 ;;;
 ;;; Level
 ;;;
+(defparameter *dt-threshold* 0.5)
 (defproto =level= ()
   ((physics-world (make-world :collision-callback #'collide-objects))
+   (accumulator 0) (physics-timestep (float 1/100 1d0))
    bricks paddles balls)
   (:documentation "A level is a collection of bricks, paddles, and balls, as well as the
 physics world that their physics-bodies reside in."))
@@ -168,24 +170,42 @@ physics world that their physics-bodies reside in."))
 
 (defreply update ((level =level=) dt &key)
   (let ((update-fun (fun (update _ dt))))
-    (with-properties (bricks paddles balls) level
+    (with-properties (bricks paddles balls physics-world physics-timestep accumulator) level
       (map nil update-fun paddles)
       (map nil update-fun balls)
-      (map nil update-fun bricks))))
+      (map nil update-fun bricks)
+      ;; now update the physics world
+      (incf accumulator (if (> dt *dt-threshold*) *dt-threshold* dt))
+      (loop while (>= accumulator physics-timestep)
+         do (world-step physics-world physics-timestep)
+           (decf accumulator physics-timestep)))))
 
 (defun gen-level (&aux (level (create =level=)))
   (with-properties (bricks paddles balls physics-world) level
+    ;; add the walls first
+    (world-add-body physics-world
+                    (make-body :shapes (list (make-segment (vec 0 0)
+                                                           (vec 0 800))
+                                             (make-segment (vec 0 800)
+                                                           (vec 600 800))
+                                             (make-segment (vec 600 800)
+                                                           (vec 600 0))
+                                             (make-segment (vec 600 0)
+                                                           (vec 0 0)))))
     (push (create =paddle=) paddles)
     (setf (object-position (car paddles)) (vec 400 30))
     (loop for x from 25 by 50 upto 800 do
-         (loop for y from 410 by 20 upto 600
+         (loop for y from 310 by 20 upto 600
             for brick = (create =brick=) do
               (setf (object-position brick) (vec x y))
               (push brick bricks)))
     (let ((world-add-fun (fun (world-add-body physics-world (physics-body _)))))
       (map nil world-add-fun paddles)
       (map nil world-add-fun balls)
-      (map nil world-add-fun bricks)))
+      (map nil world-add-fun bricks))
+    ;; finally, add the mouse constraint
+    ;; todo
+    )
   level)
 
 ;;;
