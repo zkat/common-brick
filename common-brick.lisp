@@ -23,7 +23,7 @@
   ((graphic (create-image (merge-pathnames "ball.png" *resource-directory*)))))
 
 (defreply draw ((object =game-object=) &rest args &key)
-  (with-properties (x y content) thing
+  (with-properties (x y content) object
     (apply 'draw-at x y content args)))
 
 (defreply update :before ((object =game-object=) dt &key)
