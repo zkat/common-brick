@@ -46,15 +46,11 @@
 (defproto =brick= (=game-object=)
   ((graphic (create-image (merge-pathnames "brick.png" *resource-directory*)))))
 (defreply init-object :after ((obj =brick=) &key)
-  (let* ((height/2 (/ (height (graphic obj)) 2))
-         (width/2 (/ (width (graphic obj)) 2))
-         (verts (list (vec (- width/2) height/2)
-                      (vec width/2 height/2)
-                      (vec width/2 (- height/2))
-                      (vec (- width/2) (- height/2)))))
-    (setf (physics-body obj)
-          (make-body :actor obj
-                     :shapes (list (make-poly verts :friction 0.3))))))
+  (setf (physics-body obj)
+        (make-body :actor obj
+                   :shapes (list (make-rectangle (width (graphic obj))
+                                                 (height (graphic obj))
+                                                 :friction 0.3)))))
 
 (defproto =paddle= (=game-object=)
   ((graphic (create-image (merge-pathnames "paddle.png" *resource-directory*)))))
