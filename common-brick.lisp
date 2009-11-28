@@ -2,6 +2,13 @@
   (:use :cl :squirl :uid :sheeple))
 (in-package :common-brick)
 
+;;; Utilities
+(defmacro fun (&body body)
+  "This macro puts the FUN back in LAMBDA"
+  `(lambda (&optional _)
+     (declare (ignorable _))
+     ,@body))
+
 ;;; Resources
 (defvar *resource-directory*
   (merge-pathnames "res/" (load-time-value (or #.*compile-file-truename* *load-truename*))))
@@ -14,7 +21,23 @@
   ((uid:title "Common Brick")
    (uid:window-width 800)
    (uid:window-height 600)
+   bricks
+   paddles
+   balls
    (physics-world (make-world :collision-callback #'collide-objects))))
+
+(defreply draw ((game =common-brick=) &key)
+  (with-properties (bricks paddles balls) game
+    (map nil #'draw bricks)
+    (map nil #'draw paddles)
+    (map nil #'draw balls)))
+
+(defreply update ((game =common-brick=) dt &key)
+  (let ((fun (fun (update _ dt))))
+    (with-properties (bricks paddles balls) game
+      (map nil fun paddles)
+      (map nil fun balls)
+      (map nil fun bricks))))
 
 ;;; Game objects
 (defproto =game-object= ()
