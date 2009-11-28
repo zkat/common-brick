@@ -85,7 +85,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 ;; and one or more paddles. We create prototypes for each of these 3 types. In this particular
 ;; case, delegation makes sharing the image resource easy and transparent.
 (defproto =brick= (=game-object=)
-  ((graphic (create-image (merge-pathnames "brick.png" *resource-directory*)))))
+  ((graphic (create-image (merge-pathnames "brick.png" *resource-directory*))) destroyedp))
 ;; For each prototype, we also need to provide an init-object reply that takes care of adding
 ;; the actual physics body to each object. Each physics body has to be unique, so we can't just
 ;; stuff it in the prototype.
@@ -101,6 +101,13 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
                                                  ;; Friction will make the ball rotate when
                                                  ;; it strikes at an angle.
                                                  :friction 0.3)))))
+(defreply update ((brick =brick=) dt &key)
+  (declare (ignore dt))
+  (when (destroyedp brick)
+    (world-remove-body (physics-world (current-level *engine*))
+                       (physics-body brick))
+    (setf (bricks (current-level *engine*))
+          (delete brick (bricks (current-level *engine*))))))
 
 ;; Rinse and repeat for the other object types...
 (defproto =paddle= (=game-object=)
@@ -121,7 +128,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
           ;; so we set the physics body's actor to each object.
           (make-body :actor obj
                      :shapes (list (make-segment point-a point-b
-                                                 :radius height
+                                                 :radius (/ height 2)
                                                  ;; This should make it so balls speed up
                                                  ;; slightly every time they hit a paddle
                                                  ;; (since "bounce" is a little more than perfect)
@@ -142,12 +149,21 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 (defproto =ball= (=game-object=)
   ((graphic (create-image (merge-pathnames "ball.png" *resource-directory*)))))
 (defreply init-object :after ((obj =ball=) &key)
-  (let* ((radius (width (graphic obj))))
+  (let* ((radius (/ (width (graphic obj)) 2)))
     (setf (physics-body obj)
           (make-body :actor obj
                      ;; Balls are our only non-static objects, so they have some mass.
-                     :mass 5
+                     :mass 5 :velocity (vec (random 100) 200)
                      :shapes (list (make-circle radius :friction 0.3 :restitution 1))))))
+
+(defreply key-down ((game =common-brick=) key)
+  (when (eq key #\Space)
+    (let ((ball (create =ball=)))
+      (setf (object-position ball)
+            (object-position (car (paddles (current-level game)))))
+      (push ball (balls (current-level game)))
+      (world-add-body (physics-world (current-level game))
+                      (physics-body ball)))))
 
 ;; Now that we have our game objects, we write some boilerplate to update and draw them.
 (defreply draw ((object =game-object=) &rest args &key)
@@ -196,14 +212,14 @@ physics world that their physics-bodies reside in."))
   (with-properties (bricks paddles balls physics-world) level
     ;; add the walls first
     (world-add-body physics-world
-                    (make-body :shapes (list (make-segment (vec 0 0)
-                                                           (vec 0 800))
-                                             (make-segment (vec 0 800)
-                                                           (vec 600 800))
-                                             (make-segment (vec 600 800)
-                                                           (vec 600 0))
-                                             (make-segment (vec 600 0)
-                                                           (vec 0 0)))))
+                    (make-body :shapes (list (make-segment (vec 0 0) (vec 0 600)
+                                                           :restitution 1)
+                                             (make-segment (vec 0 600) (vec 800 600)
+                                                           :restitution 1)
+                                             (make-segment (vec 800 600) (vec 800 0)
+                                                           :restitution 1)
+                                             (make-segment (vec 800 0) (vec 0 0)
+                                                           :restitution 1))))
     (push (create =paddle=) paddles)
     (setf (object-position (car paddles)) (vec 400 30))
     (loop for x from 25 by 50 upto 800 do
@@ -235,10 +251,11 @@ physics world that their physics-bodies reside in."))
   t)
 
 (defun brick/ball (brick ball contacts)
-  (declare (ignore brick ball contacts))
-  ;; eventually, we want this to increment the score.
+  (declare (ignore ball contacts))
+  (setf (destroyedp brick) t)
   t)
 
+(defreply collide-objects (a b arbiter) (declare (ignore a b arbiter)) t)
 ;; Now we define the actual replies...
 (defreply collide-objects ((obj1 =ball=) (obj2 =ball=) contacts)
   (declare (ignore contacts))
