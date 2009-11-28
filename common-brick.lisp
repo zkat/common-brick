@@ -36,16 +36,21 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
    current-level))
 
 (defreply draw ((game =common-brick=) &key)
-  (draw (current-level game)))
+  (when (current-level game)
+    (draw (current-level game))))
 (defreply update ((game =common-brick=) dt &key)
-  (update (current-level game) dt))
+  (when (current-level game)
+    (update (current-level game) dt))
+  (sleep 0.01))
 
 ;;;
 ;;; Level
 ;;;
-;;; - A level is a collection of bricks. When all bricks in a level are destroyed, the level is over.
 (defproto =level= ()
-  (bricks paddles balls physics-world))
+  ((physics-world (make-world :collision-callback #'collide-objects))
+   bricks paddles balls)
+  (:documentation "A level is a collection of bricks, paddles, and balls, as well as the
+physics world that their physics-bodies reside in."))
 (defreply init-object ((level =level=) &key)
   (setf (physics-world level) (make-world :collision-callback #'collide-objects)))
 
@@ -101,7 +106,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 (defreply init-object :after ((obj =paddle=) &key)
   (let* ((width (width (graphic obj)))
          (height (height (graphic obj)))
-         ;; Note that width/height for UID images defaults to 1 unless the engine
+         ;; Note that width/height for UID images defaults to 0 unless the engine
          ;; is already running, so this will only be accurate if OBJ is created
          ;; inside a running engine.
          (point-a (vec (- (/ width 2)) 0))
