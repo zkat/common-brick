@@ -4,7 +4,6 @@
 
 ;;; Utilities
 (defmacro fun (&body body)
-  "This macro puts the FUN back in LAMBDA"
   `(lambda (&optional _)
      (declare (ignorable _))
      ,@body))
@@ -51,11 +50,8 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 ;;; - UID sprites do not hold position information, and squirl bodies do not hold graphics information.
 ;;;   The clear solution is to just put them both into a "game object" which is what we will
 ;;;   actually be interacting with.
-;; TODO - either make game-objects engine-aware so they can access the physics world, or have
-;;        whatever the level setup stuff is take care of adding/removing physics bodies.
 (defproto =game-object= ()
-  (graphic physics-body)
-  (:documentation "Common Brick game object."))
+  (graphic physics-body))
 
 (defmessage object-position (obj))
 (defreply object-position ((obj =game-object=)) (body-position (property-value obj 'physics-body)))
@@ -64,21 +60,15 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 (defreply (setf object-position) (new-value (obj =game-object=))
   (setf (body-position (property-value obj 'physics-body)) new-value))
 
-(defmessage x (obj))
-(defmessage y (obj))
-(defmessage (setf x) (new-value obj))
-(defmessage (setf y) (new-value obj))
-(defreply x ((obj =game-object=))
-  (vec-x (body-position (physics-body obj))))
-(defreply (setf x) (new-value (obj =game-object=))
-  (setf (body-position (physics-body obj))
-        (vec new-value (y obj))) new-value)
+(defreply draw ((object =game-object=) &rest args &key)
+  (with-properties (graphic physics-body) object
+    (let* ((vec (body-position physics-body))
+           (x (vec-x vec))
+           (y (vec-y vec)))
+      ;; todo: draw the rotation, too.
+      (apply 'draw-at x y graphic args))))
 
-(defreply y ((obj =game-object=))
-  (vec-y (body-position (physics-body obj))))
-(defreply (setf y) (new-value (obj =game-object=))
-  (setf (body-position (physics-body obj))
-        (vec (x obj) new-value)) new-value)
+(defreply update ((object =game-object=) dt &key) (declare (ignore dt)) nil)
 
 ;; A basic breakout game involves 3 "game objects": A bunch of bricks, one or more balls,
 ;; and one or more paddles. We create prototypes for each of these 3 types. In this particular
@@ -92,8 +82,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
   (setf (physics-body obj)
         ;; bricks are static bodies, so we don't provide a mass.
         (make-body :actor obj
-                   :shapes (list (make-rectangle (width (graphic obj))
-                                                 (height (graphic obj))
+                   :shapes (list (make-rectangle (width (graphic obj)) (height (graphic obj))
                                                  ;; Restitution of 1 gives "perfect" bounce.
                                                  ;; This'll make the ball(s) keep bouncing.
                                                  :restitution 1
@@ -103,10 +92,8 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 (defreply update ((brick =brick=) dt &key)
   (declare (ignore dt))
   (when (destroyedp brick)
-    (world-remove-body (physics-world (current-level *engine*))
-                       (physics-body brick))
-    (setf (bricks (current-level *engine*))
-          (delete brick (bricks (current-level *engine*))))))
+    (world-remove-body (physics-world (current-level *engine*)) (physics-body brick))
+    (setf (bricks (current-level *engine*)) (delete brick (bricks (current-level *engine*))))))
 
 ;; Rinse and repeat for the other object types...
 (defproto =paddle= (=game-object=)
@@ -153,9 +140,9 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
           (make-body :actor obj
                      ;; Balls are our only non-static objects, so they have some mass.
                      :mass 5 :velocity (vec (random 100) 200)
-                     :shapes (list (make-circle radius :friction 0.3 :restitution 1))))))
+                     :shapes (list (make-circle radius :friction 0.7 :restitution 1))))))
 
-(defreply key-down ((game =common-brick=) key)
+(defreply key-down :after ((game =common-brick=) key)
   (when (eq key #\Space)
     (let ((ball (create =ball=)))
       (setf (object-position ball)
@@ -164,17 +151,6 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
       (world-add-body (physics-world (current-level game))
                       (physics-body ball)))))
 
-;; Now that we have our game objects, we write some boilerplate to update and draw them.
-(defreply draw ((object =game-object=) &rest args &key)
-  (with-properties (graphic physics-body) object
-    (let* ((vec (body-position physics-body))
-           (x (vec-x vec))
-           (y (vec-y vec)))
-      ;; todo: draw the rotation, too.
-      (apply 'draw-at x y graphic args))))
-
-(defreply update ((object =game-object=) dt &key) (declare (ignore dt)) nil)
-
 ;;;
 ;;; Level
 ;;;
@@ -182,9 +158,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 (defproto =level= ()
   ((physics-world (make-world :collision-callback #'collide-objects))
    (accumulator 0) (physics-timestep (float 1/100 1d0))
-   bricks paddles balls)
-  (:documentation "A level is a collection of bricks, paddles, and balls, as well as the
-physics world that their physics-bodies reside in."))
+   bricks paddles balls))
 (defreply init-object :after ((level =level=) &key)
   (setf (physics-world level) (make-world :collision-callback #'collide-objects)))
 
@@ -204,21 +178,21 @@ physics world that their physics-bodies reside in."))
       (squirl::rehash-world-static-data physics-world)
       (incf accumulator (if (> dt *dt-threshold*) *dt-threshold* dt))
       (loop while (>= accumulator physics-timestep) do
+           (map nil (fun (body-update-position (physics-body _) physics-timestep)) paddles)
            (world-step physics-world physics-timestep)
            (decf accumulator physics-timestep)))))
 
 (defun gen-level (&aux (level (create =level=)))
   (with-properties (bricks paddles balls physics-world) level
     ;; add the walls first
-    (world-add-body physics-world
-                    (make-body :shapes (list (make-segment (vec 0 0) (vec 0 600)
-                                                           :restitution 1)
-                                             (make-segment (vec 0 600) (vec 800 600)
-                                                           :restitution 1)
-                                             (make-segment (vec 800 600) (vec 800 0)
-                                                           :restitution 1)
-                                             (make-segment (vec 800 0) (vec 0 0)
-                                                           :restitution 1))))
+    (world-add-body physics-world (make-body :shapes (list (make-segment (vec 0 0) (vec 0 600)
+                                                                         :restitution 1)
+                                                           (make-segment (vec 0 600) (vec 800 600)
+                                                                         :restitution 1)
+                                                           (make-segment (vec 800 600) (vec 800 0)
+                                                                         :restitution 1)
+                                                           (make-segment (vec 800 0) (vec 0 0)
+                                                                         :restitution 1))))
     (push (create =paddle=) paddles)
     (setf (object-position (car paddles)) (vec 400 30))
     (loop for x from 25 by 50 upto 800 do
@@ -235,36 +209,19 @@ physics world that their physics-bodies reside in."))
 ;;;
 ;;; Game object collisions
 ;;;
-;;; - SquirL has a DEFCOLLISION macro by default that abstracts away this nasty pattern.  Since
-;;;   we're using a custom callback, though, we need to write this out ourselves :(
-;;;
-;;;   The reason we define functions separately is so that they can share a body and still close
-;;;   over the lexical environment properly. tl;dr: I'm anal, and that's why this code is ugly.
-;;;
-(defun paddle/ball (paddle ball contacts)
-  (declare (ignore paddle ball contacts))
-  ;; for now, just return T, which means the collision happened.
-  t)
-
-(defun brick/ball (brick ball contacts)
-  (declare (ignore ball contacts))
-  (setf (destroyedp brick) t)
-  t)
-
 (defreply collide-objects (a b arbiter) (declare (ignore a b arbiter)) t)
 ;; Now we define the actual replies...
-(defreply collide-objects ((obj1 =ball=) (obj2 =ball=) contacts)
-  (declare (ignore contacts))
-  ;; with two balls involved, we can let them bounce. This reply is symmetrical, so we don't
-  ;; need a separate function to have it share a body.
-  t)
+(defreply collide-objects ((obj1 =ball=) (obj2 =ball=) arbiter)
+  (declare (ignore arbiter)) t)
 
-(defreply collide-objects ((obj1 =paddle=) (obj2 =ball=) contacts)
-  (paddle/ball obj1 obj2 contacts))
-(defreply collide-objects ((obj1 =ball=) (obj2 =paddle=) contacts)
-  (paddle/ball obj2 obj1 contacts))
+(defreply collide-objects ((obj1 =paddle=) (obj2 =ball=) arbiter)
+  (declare (ignore arbiter)) t)
+(defreply collide-objects ((obj1 =ball=) (obj2 =paddle=) arbiter)
+  (declare (ignore arbiter)) t)
 
-(defreply collide-objects ((obj1 =brick=) (obj2 =ball=) contacts)
-  (brick/ball obj1 obj2 contacts))
-(defreply collide-objects ((obj1 =ball=) (obj2 =brick=) contacts)
-  (brick/ball obj2 obj1 contacts))
+(defreply collide-objects ((obj1 =brick=) (obj2 =ball=) arbiter)
+  (declare (ignore arbiter))
+  (setf (destroyedp obj1) t))
+(defreply collide-objects ((obj1 =ball=) (obj2 =brick=) arbiter)
+  (declare (ignore arbiter))
+  (setf (destroyedp obj2) t))
