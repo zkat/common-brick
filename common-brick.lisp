@@ -112,23 +112,21 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
           ;; when a collision between two shapes happens. In the case of our game objects,
           ;; we want to write COLLIDE-OBJECTS replies that dispatch on the game objects themselves,
           ;; so we set the physics body's actor to each object.
-          (make-body :actor obj
-                     :shapes (list (make-segment point-a point-b
-                                                 :radius (/ height 2)
-                                                 ;; This should make it so balls speed up
-                                                 ;; slightly every time they hit a paddle
-                                                 ;; (since "bounce" is a little more than perfect)
-                                                 :restitution 1.01
-                                                 :friction 0.6))))))
+          (make-body :actor obj :shapes (list (make-segment point-a point-b
+                                                            :radius (/ height 2) :friction 0.8
+                                                            ;; This should make it so balls speed up
+                                                            ;; slightly every time they hit a paddle
+                                                            ;; (since "bounce" is a little more
+                                                            ;; than perfect)
+                                                            :restitution 1.05))))))
 
 (defreply update ((paddle =paddle=) dt &key)
   (with-properties (physics-body delta-x velocity) paddle
     (when (key-down-p :right) (incf delta-x))
     (when (key-down-p :left) (decf delta-x))
-    (setf (body-position physics-body)
-          (vec (+ (* delta-x velocity dt)
-                  (vec-x (body-position physics-body)))
-               (vec-y (body-position physics-body))))
+    (body-slew physics-body (vec (+ (* delta-x velocity dt)
+                                    (vec-x (body-position physics-body)))
+                                 (vec-y (body-position physics-body))) dt)
     (setf delta-x 0)))
 
 ;; And now our balls...
