@@ -17,7 +17,7 @@
 ;;;
 ;;; - We use a custom collision callback because our game-objects are Sheeple-based. By default,
 ;;;   SquirL uses a CLOS-based multi-dispatched genfun (COLLIDE), which this emulates.
-(defmessage collide-objects (a b contacts)
+(defmessage collide-objects (a b arbiter)
   (:documentation "Collides A and B. If a reply returns NIL, the collision is not resolved by
 SquirL. Otherwise, the collision actually happens. The body of the reply is executed regardless."))
 
