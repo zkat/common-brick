@@ -93,7 +93,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
   (declare (ignore dt))
   (when (destroyedp brick)
     (world-remove-body (physics-world (current-level *engine*)) (physics-body brick))
-    (setf (bricks (current-level *engine*)) (delete brick (bricks (current-level *engine*))))))
+    (setf (bricks (current-level *engine*)) (remove brick (bricks (current-level *engine*))))))
 
 ;; Rinse and repeat for the other object types...
 (defproto =paddle= (=game-object=)
