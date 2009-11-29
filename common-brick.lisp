@@ -154,7 +154,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 ;;;
 (defparameter *dt-threshold* 0.5)
 (defproto =level= ()
-  ((physics-world (make-world :collision-callback #'collide-objects))
+  ((physics-world (make-world :damping 0d0 :collision-callback #'collide-objects))
    (accumulator 0) (physics-timestep (float 1/100 1d0))
    bricks paddles balls))
 (defreply init-object :after ((level =level=) &key)
