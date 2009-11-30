@@ -83,9 +83,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
         ;; bricks are static bodies, so we don't provide a mass.
         (make-body :actor obj
                    :shapes (list (make-rectangle (width (graphic obj)) (height (graphic obj))
-                                                 ;; Restitution of 1 gives "perfect" bounce.
-                                                 ;; This'll make the ball(s) keep bouncing.
-                                                 :restitution 1
+                                                 :restitution 0.8
                                                  ;; Friction will make the ball rotate when
                                                  ;; it strikes at an angle.
                                                  :friction 0.3)))))
@@ -118,7 +116,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
                                                             ;; slightly every time they hit a paddle
                                                             ;; (since "bounce" is a little more
                                                             ;; than perfect)
-                                                            :restitution 1.05))))))
+                                                            :restitution 1.1))))))
 
 (defreply update ((paddle =paddle=) dt &key)
   (with-properties (physics-body delta-x velocity) paddle
@@ -137,7 +135,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
     (setf (physics-body obj)
           (make-body :actor obj
                      ;; Balls are our only non-static objects, so they have some mass.
-                     :mass 5 :velocity (vec (random 100) 200)
+                     :mass 5 :velocity (vec (random 100) 400)
                      :shapes (list (make-circle radius :friction 0.7 :restitution 1))))))
 
 (defreply key-down :after ((game =common-brick=) key)
@@ -154,11 +152,12 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 ;;;
 (defparameter *dt-threshold* 0.5)
 (defproto =level= ()
-  ((physics-world (make-world :damping 0d0 :collision-callback #'collide-objects))
+  ((physics-world (make-world :damping 5d0 :collision-callback #'collide-objects))
    (accumulator 0) (physics-timestep (float 1/100 1d0))
    bricks paddles balls))
 (defreply init-object :after ((level =level=) &key)
-  (setf (physics-world level) (make-world :collision-callback #'collide-objects)))
+  (setf (physics-world level) (make-world :gravity (vec 0 -200)
+                                          :collision-callback #'collide-objects)))
 
 (defreply draw ((level =level=) &key)
   (with-properties (bricks paddles balls) level
@@ -184,13 +183,13 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
   (with-properties (bricks paddles balls physics-world) level
     ;; add the walls first
     (world-add-body physics-world (make-body :shapes (list (make-segment (vec 0 0) (vec 0 600)
-                                                                         :restitution 1)
+                                                                         :restitution 0.2)
                                                            (make-segment (vec 0 600) (vec 800 600)
-                                                                         :restitution 1)
+                                                                         :restitution 0.2)
                                                            (make-segment (vec 800 600) (vec 800 0)
-                                                                         :restitution 1)
+                                                                         :restitution 0.2)
                                                            (make-segment (vec 800 0) (vec 0 0)
-                                                                         :restitution 1))))
+                                                                         :restitution 0.2))))
     (push (create =paddle=) paddles)
     (setf (object-position (car paddles)) (vec 400 30))
     (loop for x from 25 by 50 upto 800 do
