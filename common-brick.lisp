@@ -53,22 +53,20 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 (defproto =game-object= ()
   (graphic physics-body))
 
-(defmessage object-position (obj))
-(defreply object-position ((obj =game-object=)) (body-position (property-value obj 'physics-body)))
+(defmessage object-position (obj)
+  (:reply ((obj =game-object=)) (body-position (property-value obj 'physics-body))))
 
-(defmessage (setf object-position) (new-value obj))
-(defreply (setf object-position) (new-value (obj =game-object=))
-  (setf (body-position (property-value obj 'physics-body)) new-value))
+(defmessage (setf object-position) (new-value obj)
+  (:reply (new-value (obj =game-object=))
+    (setf (body-position (property-value obj 'physics-body)) new-value)))
 
 (defreply draw ((object =game-object=) &rest args &key)
   (with-properties (graphic physics-body) object
-    (let* ((vec (body-position physics-body))
-           (x (vec-x vec))
-           (y (vec-y vec)))
+    (let ((vec (body-position physics-body)))
       ;; todo: draw the rotation, too.
-      (apply 'draw-at x y graphic args))))
+      (apply 'draw-at (vec-x vec) (vec-y vec) graphic args))))
 
-(defreply update ((object =game-object=) dt &key) (declare (ignore dt)) nil)
+(defreply update ((object =game-object=) (dt =number=) &key) nil)
 
 ;; A basic breakout game involves 3 "game objects": A bunch of bricks, one or more balls,
 ;; and one or more paddles. We create prototypes for each of these 3 types. In this particular
@@ -124,7 +122,8 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
     (when (key-down-p :left) (decf delta-x))
     (body-slew physics-body (vec (+ (* delta-x velocity dt)
                                     (vec-x (body-position physics-body)))
-                                 (vec-y (body-position physics-body))) dt)
+                                 (vec-y (body-position physics-body)))
+               (float dt 1d0))
     (setf delta-x 0)))
 
 ;; And now our balls...
@@ -173,7 +172,7 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
       (map nil update-fun bricks)
       ;; now update the physics world
       (squirl::rehash-world-static-data physics-world)
-      (incf accumulator (if (> dt *dt-threshold*) *dt-threshold* dt))
+      (incf accumulator (min *dt-threshold* dt))
       (loop while (>= accumulator physics-timestep) do
            (map nil (fun (body-update-position (physics-body _) physics-timestep)) paddles)
            (world-step physics-world physics-timestep)
@@ -208,17 +207,10 @@ SquirL. Otherwise, the collision actually happens. The body of the reply is exec
 ;;;
 (defreply collide-objects (a b arbiter) (declare (ignore a b arbiter)) t)
 ;; Now we define the actual replies...
-(defreply collide-objects ((obj1 =ball=) (obj2 =ball=) arbiter)
-  (declare (ignore arbiter)) t)
-
-(defreply collide-objects ((obj1 =paddle=) (obj2 =ball=) arbiter)
-  (declare (ignore arbiter)) t)
-(defreply collide-objects ((obj1 =ball=) (obj2 =paddle=) arbiter)
-  (declare (ignore arbiter)) t)
-
-(defreply collide-objects ((obj1 =brick=) (obj2 =ball=) arbiter)
-  (declare (ignore arbiter))
+(defreply collide-objects ((obj1 =ball=) (obj2 =ball=) (arbiter =t=)) t)
+(defreply collide-objects ((obj1 =paddle=) (obj2 =ball=) (arbiter =t=)) t)
+(defreply collide-objects ((obj1 =ball=) (obj2 =paddle=) (arbiter =t=)) t)
+(defreply collide-objects ((obj1 =brick=) (obj2 =ball=) (arbiter =t=))
   (setf (destroyedp obj1) t))
-(defreply collide-objects ((obj1 =ball=) (obj2 =brick=) arbiter)
-  (declare (ignore arbiter))
+(defreply collide-objects ((obj1 =ball=) (obj2 =brick=) (arbiter =t=))
   (setf (destroyedp obj2) t))
